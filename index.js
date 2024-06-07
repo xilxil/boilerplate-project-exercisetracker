@@ -79,6 +79,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
       date: exercise.date.toDateString(),
     };
 
+    // Send the user object with exercise fields added in the response
     res.json(user);
   } catch (error) {
     res.status(400).send('Error adding exercise');
