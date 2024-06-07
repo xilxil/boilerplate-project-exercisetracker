@@ -71,15 +71,15 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     });
     await exercise.save();
 
-    // Update user's exercise count
-    await User.findByIdAndUpdate(userId, { $inc: { exerciseCount: 1 } });
-
-    res.json({
-      username: exercise.username,
+    // Get user object with the exercise fields added
+    const user = await User.findById(userId, '_id username');
+    user.exercise = {
       description: exercise.description,
       duration: exercise.duration,
       date: exercise.date.toDateString(),
-    });
+    };
+
+    res.json(user);
   } catch (error) {
     res.status(400).send('Error adding exercise');
   }
@@ -125,6 +125,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html');
 });
+
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
 });
