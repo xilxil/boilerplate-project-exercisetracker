@@ -1,130 +1,80 @@
+// Import necessary modules
 const express = require('express');
+const app = express();
 const cors = require('cors');
-const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
 require('dotenv').config();
 
-const app = express();
+// Dummy database to store users and exercise logs
+let users = [];
+let exerciseLogs = [];
 
+// Middleware
 app.use(cors());
 app.use(express.static('public'));
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+app.use(express.json());
 
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-
-// User schema and model
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true }
-});
-
-const User = mongoose.model('User', userSchema);
-
-// Exercise schema and model
-const exerciseSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  description: { type: String, required: true },
-  duration: { type: Number, required: true },
-  date: { type: Date, required: true }
-});
-
-const Exercise = mongoose.model('Exercise', exerciseSchema);
-
+// Routes
+// Serve index.html
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html');
 });
 
-// Endpoint to create a new user
-app.post('/api/users', async (req, res) => {
-  try {
-    const { username } = req.body;
-    const newUser = new User({ username });
-    const savedUser = await newUser.save();
-    res.json({ username: savedUser.username, _id: savedUser._id });
-  } catch (error) {
-    res.status(500).json({ error: 'Error creating user' });
-  }
+// Route to create a new user
+app.post('/api/users', (req, res) => {
+  const { username } = req.body;
+  const newUser = {
+    username,
+    _id: generateId(), // You need to implement the logic to generate unique IDs
+  };
+  users.push(newUser);
+  res.json(newUser);
 });
 
-// Endpoint to get all users
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find({}, 'username _id');
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: 'Error fetching users' });
-  }
+// Route to get a list of all users
+app.get('/api/users', (req, res) => {
+  res.json(users);
 });
 
-// Endpoint to add an exercise to a user
-app.post('/api/users/:_id/exercises', async (req, res) => {
-  try {
-    const { _id } = req.params;
-    const { description, duration, date } = req.body;
-    const user = await User.findById(_id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const newExercise = new Exercise({
-      userId: user._id,
-      description,
-      duration,
-      date: date ? new Date(date) : new Date()
-    });
-
-    const savedExercise = await newExercise.save();
-
-    res.json({
-      username: user.username,
-      description: savedExercise.description,
-      duration: savedExercise.duration,
-      date: savedExercise.date.toDateString(),
-      _id: user._id
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Error adding exercise' });
-  }
+// Route to add an exercise for a specific user
+app.post('/api/users/:userId/exercises', (req, res) => {
+  const { userId } = req.params;
+  const { description, duration, date } = req.body;
+  
+  const newExercise = {
+    username: findUserById(userId).username,
+    description,
+    duration,
+    date: date || new Date().toDateString(),
+  };
+  
+  exerciseLogs.push(newExercise);
+  res.json(newExercise);
 });
 
-// Endpoint to get a user's exercise log
-app.get('/api/users/:_id/logs', async (req, res) => {
-  try {
-    const { _id } = req.params;
-    const { from, to, limit } = req.query;
-
-    const user = await User.findById(_id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    // Build the query
-    const query = Exercise.find({ userId: _id });
-
-    // Add date filters if provided
-    if (from) query.where('date').gte(new Date(from));
-    if (to) query.where('date').lte(new Date(to));
-
-    // Add limit if provided
-    if (limit) query.limit(parseInt(limit));
-
-    // Execute the query
-    const log = await query.select('description duration date -_id').exec();
-
-    // Prepare the response
-    const formattedLog = log.map(e => ({
-      description: e.description,
-      duration: e.duration,
-      date: e.date.toDateString()
-    }));
-
-    res.json({
-      username: user.username,
-      count: formattedLog.length,
-      _id: user._id,
-      log: formattedLog
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Error fetching logs' });
-  }
+// Route to retrieve full exercise log of a specific user
+app.get('/api/users/:userId/logs', (req, res) => {
+  const { userId } = req.params;
+  const user = findUserById(userId);
+  const userLogs = exerciseLogs.filter(log => log.username === user.username);
+  res.json({
+    _id: user._id,
+    username: user.username,
+    count: userLogs.length,
+    log: userLogs,
+  });
 });
 
+// Helper function to find user by ID
+function findUserById(userId) {
+  return users.find(user => user._id === userId);
+}
+
+// Helper function to generate unique IDs
+function generateId() {
+  return '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Start the server
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
 });
