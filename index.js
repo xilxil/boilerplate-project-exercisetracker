@@ -71,8 +71,10 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     });
     await exercise.save();
 
-    // Get user object with the exercise fields added
+    // Get user object
     const user = await User.findById(userId, '_id username');
+
+    // Attach exercise details to the user object
     user.exercise = {
       description: exercise.description,
       duration: exercise.duration,
@@ -127,6 +129,7 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html');
 });
 
-const listener = app.listen(process.env.PORT || 3000, () => {
-  console.log('Your app is listening on port ' + listener.address().port);
+const PORT = process.env.PORT || 3000;
+const listener = app.listen(PORT, () => {
+  console.log('Your app is listening on port ' + PORT);
 });
