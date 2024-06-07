@@ -94,25 +94,31 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     const user = await User.findById(_id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    let dateFilter = {};
-    if (from) dateFilter.$gte = new Date(from);
-    if (to) dateFilter.$lte = new Date(to);
+    // Build the query
+    const query = Exercise.find({ userId: _id });
 
-    let query = Exercise.find({ userId: _id });
-    if (from || to) query = query.where('date', dateFilter);
-    if (limit) query = query.limit(parseInt(limit));
+    // Add date filters if provided
+    if (from) query.where('date').gte(new Date(from));
+    if (to) query.where('date').lte(new Date(to));
 
+    // Add limit if provided
+    if (limit) query.limit(parseInt(limit));
+
+    // Execute the query
     const log = await query.select('description duration date -_id').exec();
+
+    // Prepare the response
+    const formattedLog = log.map(e => ({
+      description: e.description,
+      duration: e.duration,
+      date: e.date.toDateString()
+    }));
 
     res.json({
       username: user.username,
-      count: log.length,
+      count: formattedLog.length,
       _id: user._id,
-      log: log.map(e => ({
-        description: e.description,
-        duration: e.duration,
-        date: e.date.toDateString()
-      }))
+      log: formattedLog
     });
   } catch (error) {
     res.status(500).json({ error: 'Error fetching logs' });
